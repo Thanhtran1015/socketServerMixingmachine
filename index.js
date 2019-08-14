@@ -23,7 +23,7 @@ var startTime = 0;
 
 //Khai bao thu vien Mongodb
 const MongoClient = require('mongodb').MongoClient;
-const url = "mongodb://10.4.0.57:27017";
+const url = "mongodb://localhost:27017";
 
 // Database Name
 const dbName = 'IoT';
@@ -45,7 +45,6 @@ var connection = require('./helpers/connection');
 
 var socketCount = 0;
 
-
 app.use(express.static(publicDirectoryPath))
 app.set("view engine", "ejs");
 app.set("views", "./views");
@@ -58,32 +57,58 @@ function sendTime() {
     io.sockets.emit('atime', json);
 }
 
-function sendAlarmOn(timeOut) {
+function sendAlarmOn(timeOut, coreID) {
+    const client2 = new MongoClient(url, { useNewUrlParser: true });
+    client2.connect(function (err) {
+        debugger;
 
-    var json = {
-        status: "ON"
-    }
-    console.log(json);
-    io.sockets.emit('alarm', json);
+        const db2 = client2.db(dbName);
+        const collection5 = db2.collection('Settings');
 
-    setTimeout(() => {
-        sendAlarmOff();
-    }, timeOut * 1000);
-   // onAlarm = true;
+        debugger;
+        collection5.updateOne({ 'CoreID': coreID }, { $set: { 'onAlarm': true } }, function (err, res) {
+            if (err) throw err;
+            console.log("Updated Collection 5");
+        });
 
-    collection5.updateOne({coreID: data.coreID},{onAlarm: true},function(err, res) {
+        debugger;
+        var json = {
+            status: "ON"
+        }
+        console.log(json);
+        io.sockets.emit('alarm', json);
 
+        setTimeout(() => {
+            sendAlarmOff(coreID);
+        }, timeOut * 1000);
+        // //onAlarm = true;
+
+
+        // setTimeout(() => {
+        //     sendAlarmOff(coreID);
+        // }, timeOut * 1000);
     });
 }
-function sendAlarmOff() {
-    var json = {
-        status: "OFF"
-    }
-    console.log(json);
-    io.sockets.emit('alarm', json);
-  //  onAlarm = false;
+function sendAlarmOff(coreID) {
+    const client3 = new MongoClient(url, { useNewUrlParser: true });
+    client3.connect(function (err) {
+        const db = client3.db(dbName);
+        const collection5 = db.collection('Settings');
 
-    collection5.updateOne({coreID: data.coreID},{onAlarm: false},function(err, res) {
+
+        collection5.updateOne({ 'CoreID': coreID }, { $set: { 'onAlarm': false} }, function (err, res) {
+            if (err) throw err;
+            console.log("Updated Collection 5");
+        });
+
+        var json = {
+            status: "OFF"
+        }
+        console.log(json);
+
+        io.sockets.emit('alarm', json);
+        //  onAlarm = false;
+
 
     });
 }
@@ -198,8 +223,6 @@ io.on('connection', (socket) => {
         // Use connect method to connect to the Server
         client.connect(function (err) {
 
-
-
             console.log("Connected successfully to server");
 
             const db = client.db(dbName);
@@ -224,12 +247,11 @@ io.on('connection', (socket) => {
                 if (data.D >= result.StartAfter) {
                     if (result.StandardRPM > data.R) {
                         if (result.onAlarm == false) {
-                            sendAlarmOn(result.TimeOut);
+                           sendAlarmOn(result.TimeOut, data.I);
+                            
                         }
                     }
-
                 }
-
             });
 
             // if (data.R > 0) {
@@ -404,6 +426,210 @@ server.listen(port, (res) => {
 })
 
 app.get("/", function (req, res) {
+
+
     res.render("home");
 }
 );
+
+debugger;
+app.get("/test", function (req, res) {
+
+    var tempDate = "";
+    var updatedSequence = 1;
+
+    // var cycleTimeCollection = [];
+    // var cycleTimeQuantity = 10;
+
+    var timeStartAsSeconds = common.getTimeCustom2();
+    var timeStartAsString = common.getTimeCustom();
+
+    var data = { "I": "EM001", "R": 60, "D": 10, "C": "08:51:55" }
+
+    var date1 = new Date();
+    var milliNow = date1.getTime();
+
+    // var timeNowString1 = common.getTimeCustom();
+    // var hourNow1 = date1.getHours();
+    // var minuteNow1 = date1.getMinutes();
+    // var secondNow1 = date1.getSeconds();
+
+    console.log(colors.green(data));
+
+    if (milliNow - tempMilli > 1000) { //bat dau may start
+
+        var today = common.getDateCustom();
+        startTime = milliNow;
+
+        if (today == tempDate) {
+            updatedSequence++;
+        }
+        else {
+            updatedSequence = 1;
+        }
+    }
+
+    tempDate = today;
+    tempMilli = milliNow;
+    data.S = updatedSequence;
+    data.C = common.getTimeCustom();
+
+    if (data.D == 1) {
+        timeStartAsSeconds = common.getTimeCustom2();
+        timeStartAsString = common.getTimeCustom();
+    }
+    data.Start = timeStartAsString;
+
+    var timeEndAsSeconds = timeStartAsSeconds + data.D;
+    var hourEnd = Math.floor(timeEndAsSeconds / 3600);
+    var timeEndAsSeconds2 = timeEndAsSeconds % 3600;
+    var minuteEnd = Math.floor(timeEndAsSeconds2 / 60);
+    var secondEnd = timeEndAsSeconds2 % 60;
+
+    var hourEndAsString;
+    var minuteEndAsString;
+    var secondEndAsString;
+
+    if (hourEnd < 10) {
+        hourEndAsString = "0" + String(hourEnd);
+    }
+    else {
+        hourEndAsString = String(hourEnd);
+    }
+
+    if (minuteEnd < 10) {
+        minuteEndAsString = "0" + String(minuteEnd);
+    }
+    else {
+        minuteEndAsString = String(minuteEnd);
+    }
+    if (secondEnd < 10) {
+        secondEndAsString = "0" + String(secondEnd);
+    }
+    else {
+        secondEndAsString = String(secondEnd);
+    }
+    var timeEndAsString = hourEndAsString + ":" + minuteEndAsString + ":" + secondEndAsString;
+
+    data.End = timeEndAsString;
+
+    // Use connect method to connect to the Server
+    client.connect(function (err) {
+
+
+
+        console.log("Connected successfully to server");
+
+        const db = client.db(dbName);
+
+        const collection3 = db.collection('RPM');
+        const collection4 = db.collection('RPMDisplayData');
+        const collection5 = db.collection('Settings');
+
+
+        collection3.insertOne(data, function (err, result) {
+
+            console.log("Inserted 1 document into the collection");
+
+        });
+
+        debugger;
+        collection5.findOne({}, function (err, result) {
+            if (err) throw err;
+
+            debugger;
+            // if ( !(result.StandardRPM * 0.85 <= data.R <= result.StandardRPM * 1.15) && data.D >= result.StartAfter) {
+            if (data.D >= result.StartAfter) {
+                debugger;
+                if (result.StandardRPM > data.R) {
+                    debugger;
+                    if (result.onAlarm == false) {
+                        debugger;
+                         sendAlarmOn(result.TimeOut, data.I);
+                    }
+                }
+
+            }
+
+        });
+
+        // if (data.R > 0) {
+
+        //if duration of cycle time <= 2, does not calculate!
+        // if (data.d > 2000) {
+
+        //get date today
+
+        debugger;
+        var today = common.getDateCustom();
+        var timeNow = common.getTimeCustom();
+
+
+        //db find one
+        collection4.findOne({ 'CreatedDay': today }, function (err, result) {
+            if (err) throw err;
+
+            //if today's DisplayData not exist (if null), then insert new...
+            //...document(ArduinoID: data.arduinoID,TotalTime: data.cycletime,Count:1,RealTime:data.cycletime,MinRealTime:data.cycletime,CreatedTime:datetime.now())
+            if (result == null) {
+
+                //nếu ngày hôm nay chưa có dữ liệu, reset cycleTimeCollection, rồi thêm dữ liệu đầu tiên vào.
+                RPMCollection = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+                RPMCollection[29] = data.R;
+                CreatedTimeCollection = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+                CreatedTimeCollection[29] = data.C;
+
+
+
+                //Gửi lên database với giá trị khởi tạo
+                collection4.insertOne({ 'CoreID': data.I, 'Duration': data.D, 'RPMCollection': RPMCollection, 'CreatedTimeCollection': CreatedTimeCollection, 'CreatedDay': today, 'FirstCreatedTime': timeNow, 'Sequence': updatedSequence, 'StartTime': timeStartAsString, 'EndTime': timeEndAsString }, function (err, result) {
+                    console.log("Inserted 1 document into the collection");
+                });
+            }
+
+
+            //else update current document (not null)
+            //nếu hôm nay có dữ liệu DisplayData rồi thì cập nhật mới
+            else if (result != null) {
+
+
+
+                console.log(result);
+
+                //result.array[0].TotalTime += data.cycleTime
+                //if result.array[0].MinRealTime > data.cycleTime, then result.array[0].MinRealTime = data.cycleTime
+                //result.array[0].count++
+                //result.array[0].realTime = data.cycleTime
+
+                var newCoreID = data.I
+                var newDuration = data.D;
+
+                var newCreatedDay = result.CreatedDay;
+                var newFirstCreatedTime = result.FirstCreatedTime;
+
+                RPMCollection.push(data.R);
+
+                if (RPMCollection.length > RPMQuantity) {
+                    RPMCollection.shift();
+                }
+
+                CreatedTimeCollection.push(data.C);
+
+                if (CreatedTimeCollection.length > RPMQuantity) {
+                    CreatedTimeCollection.shift();
+                }
+
+                collection4.updateOne({ 'CreatedDay': today }, { $set: { 'CoreID': newCoreID, 'Duration': newDuration, 'RPMCollection': RPMCollection, 'CreatedTimeCollection': CreatedTimeCollection, 'CreatedDay': newCreatedDay, 'FirstCreatedTime': newFirstCreatedTime, 'Sequence': updatedSequence, 'StartTime': timeStartAsString, 'EndTime': timeEndAsString } }, function (err, res) {
+                    if (err) throw err;
+                    console.log("Updated Collection 4");
+                    //db.close();
+                });
+            }
+        });
+        // }
+
+        //}
+
+    });
+    res.render("Hello");
+});
